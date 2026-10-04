@@ -1,0 +1,5 @@
+# Simpan API key hanya di salinan lokal, jangan di-commit
+*.local.html
+.env
+node_modules/
+.DS_Store

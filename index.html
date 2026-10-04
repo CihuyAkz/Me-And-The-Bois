@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roblox AI Animation Uploader</title>
+<style>
+:root{--bg:#e8ecee;--pn:#fff;--ink:#14202b;--mut:#5b6b78;--ac:#0a7d6e;--acfg:#fff;--er:#b3360b;--wn:#8a5a00;--ln:#c9d2d8;--lg:#0f1a22;--lgt:#c8e6df}
+@media(prefers-color-scheme:dark){:root{--bg:#10171c;--pn:#18232a;--ink:#e6eef2;--mut:#8fa2ae;--ac:#36c4ae;--acfg:#06201b;--er:#ff8a5c;--wn:#e8b95a;--ln:#2a3a44;--lg:#0a1116;--lgt:#a9d8cf}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+header{padding:20px 24px 4px}
+h1{margin:0;font-size:22px;letter-spacing:-.01em}
+header p{margin:2px 0 0;color:var(--mut);font-size:13px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:16px 24px 32px;max-width:1200px;margin:auto}
+@media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+section{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 10px;font-size:15px}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 3px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--ln);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{resize:vertical;min-height:70px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button{padding:8px 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn);color:var(--ink);font:inherit;cursor:pointer}
+button.p{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.id{white-space:pre-wrap;font:600 17px ui-monospace,Consolas,monospace;padding:12px;border-radius:8px;background:var(--bg);border:1px dashed var(--ac);word-break:break-all;min-height:50px}
+#log,pre{background:var(--lg);color:var(--lgt);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;max-height:280px;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-word}
+#log .er{color:#ff9d7a}#log .wn{color:#f0cb73}#log .ok{color:#7ee2b8}
+table{width:100%;border-collapse:collapse;font-size:12px;display:block;overflow-x:auto}
+td,th{padding:3px 8px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap}
+.hint{font-size:12px;color:var(--mut)}
+.sq{display:flex;gap:8px;align-items:flex-start;padding:5px 2px;border-bottom:1px solid var(--ln);font-size:13px;cursor:pointer}.sq input{width:auto;margin-top:3px}
+#seqlist{max-height:260px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Roblox AI Animation Uploader</h1>
+  <p>Prompt/keyframe → KeyframeSequence R15 → RBXMX → Open Cloud Assets API → AnimationId</p>
+</header>
+<main>
+<div>
+  <section>
+    <h2>Kredensial</h2>
+    <label for="key">API key Open Cloud (izin asset:read &amp; asset:write)</label>
+    <input id="key" type="password" autocomplete="off">
+    <div class="r2">
+      <div><label for="ctype">Pemilik asset</label>
+        <select id="ctype"><option value="userId">User ID</option><option value="groupId">Group ID</option></select></div>
+      <div><label for="cid">ID pemilik</label><input id="cid" inputmode="numeric"></div>
+    </div>
+    <label for="base">Base URL API (kosongkan = langsung ke Roblox; isi alamat proxy lokal jika kena CORS)</label>
+    <input id="base" placeholder="https://apis.roblox.com">
+  </section>
+
+  <section>
+    <h2>Input animasi</h2>
+    <label for="prompt">Prompt (template: idle, walk, run, wave, jump)</label>
+    <textarea id="prompt" placeholder="buat animasi idle R15 breathing 3 detik"></textarea>
+    <label for="file">Atau import (.json keyframe, atau .rbxm/.rbxl/.rbxmx/.rbxlx berisi satu atau banyak KeyframeSequence)</label>
+    <input id="file" type="file" accept=".json,.rbxm,.rbxmx,.rbxl,.rbxlx,.xml">
+    <div class="r2">
+      <div><label for="name">Nama animasi</label><input id="name" placeholder="otomatis"></div>
+      <div><label for="dur">Durasi (detik)</label><input id="dur" type="number" min="0.1" step="0.1" placeholder="otomatis"></div>
+      <div><label for="loop">Looping</label><select id="loop"><option value="">Otomatis</option><option value="1">Ya</option><option value="0">Tidak</option></select></div>
+      <div><label for="pri">Priority</label><select id="pri"><option value="">Otomatis</option></select></div>
+      <div><label for="es">Easing style</label><select id="es"><option value="">Otomatis</option></select></div>
+      <div><label for="ed">Easing direction</label><select id="ed"><option value="">Otomatis</option></select></div>
+    </div>
+    <div class="row">
+      <button class="p" id="gen">Generate</button>
+      <button id="ex">Contoh: walk animation</button>
+    </div>
+  </section>
+
+  <section id="seqsec" hidden>
+    <h2>KeyframeSequence di file <span class="hint" id="seqcnt"></span></h2>
+    <div class="row" style="margin:0 0 8px"><button id="sall">Pilih semua</button><button id="snone">Kosongkan</button></div>
+    <div id="seqlist"></div>
+    <p class="hint">Centang untuk memilih. Shift+klik untuk memilih rentang. Setiap sequence terpilih menjadi satu asset.</p>
+  </section>
+
+  <section>
+    <h2>Keyframe</h2>
+    <input id="kfsel" type="range" min="0" max="0" value="0" aria-label="Pilih keyframe">
+    <div class="hint" id="kfinfo">Belum ada data. Klik Generate.</div>
+    <table id="kft"></table>
+  </section>
+</div>
+
+<div>
+  <section>
+    <h2>Upload &amp; hasil</h2>
+    <div class="id" id="out" aria-live="polite">rbxassetid://…</div>
+    <div class="row">
+      <button class="p" id="up" disabled>Upload terpilih</button>
+      <button id="cp" disabled>Salin hasil</button>
+      <button id="dl" disabled>Unduh terpilih</button>
+      <button id="cu" disabled>Salin cURL</button>
+      <button id="px">Salin skrip proxy</button>
+    </div>
+    <p class="hint">Browser tidak bisa memanggil apis.roblox.com dari file lokal (tidak ada header CORS). Jika upload gagal karena itu, jalankan skrip proxy (Node 18+), isi Base URL dengan http://localhost:8787, atau pakai cURL.</p>
+  </section>
+  <section><h2>Log</h2><div id="log" role="log"></div></section>
+  <section><h2>Pratinjau RBXMX</h2><pre id="xml">—</pre></section>
+</div>
+</main>
+
+<script>
+"use strict";
+/* ===== Konfigurasi pribadi ===== */
+const ROBLOX_API_KEY = "YOUR_KEY_HERE";   // jangan bagikan file ini setelah diisi
+const ROBLOX_CREATOR_ID = "YOUR_USER_ID"; // userId atau groupId
+const API_BASE = "https://apis.roblox.com";
+
+const $ = id => document.getElementById(id);
+const S = Math.sin, C = Math.cos, PI = Math.PI, mx = Math.max;
+
+/* ===== Enum Roblox (nilai token di XML) ===== */
+const PRI = {Idle:0, Movement:1, Action:2, Action2:3, Action3:4, Action4:5, Core:1000};
+const ES = {Linear:0, Constant:1, Elastic:2, Cubic:3, Bounce:4};
+const ED = {In:0, Out:1, InOut:2};
+for (const [id, o] of [["pri", PRI], ["es", ES], ["ed", ED]])
+  Object.keys(o).forEach(k => $(id).add(new Option(k, k)));
+
+/* ===== Rig R15: [part (nama Pose), parent, Motor6D] ===== */
+const RIG = [
+  ["HumanoidRootPart", null, "(root)"], ["LowerTorso", "HumanoidRootPart", "Root"],
+  ["UpperTorso", "LowerTorso", "Waist"], ["Head", "UpperTorso", "Neck"],
+  ["LeftUpperArm", "UpperTorso", "LeftShoulder"], ["LeftLowerArm", "LeftUpperArm", "LeftElbow"], ["LeftHand", "LeftLowerArm", "LeftWrist"],
+  ["RightUpperArm", "UpperTorso", "RightShoulder"], ["RightLowerArm", "RightUpperArm", "RightElbow"], ["RightHand", "RightLowerArm", "RightWrist"],
+  ["LeftUpperLeg", "LowerTorso", "LeftHip"], ["LeftLowerLeg", "LeftUpperLeg", "LeftKnee"], ["LeftFoot", "LeftLowerLeg", "LeftAnkle"],
+  ["RightUpperLeg", "LowerTorso", "RightHip"], ["RightLowerLeg", "RightUpperLeg", "RightKnee"], ["RightFoot", "RightLowerLeg", "RightAnkle"]
+];
+
+/* ===== Generator pose (derajat, meter/stud). Karakter menghadap -Z: +rx pada kaki/lengan = ayun ke depan ===== */
+const gait = A => t => {
+  const p = 2 * PI * t, s = S(p), c = C(p);
+  const lu = A.leg * s, ru = -A.leg * s, lk = -A.knee * mx(0, c), rk = -A.knee * mx(0, -c);
+  return {
+    LowerTorso: {r: [0, A.twist * s, 0], p: [0, A.bob * C(2 * p), 0]},          // Hip
+    UpperTorso: {r: [A.lean, -A.twist * s, 0]},                                  // Spine
+    Head: {r: [-A.lean * .6, 0, 0]},
+    LeftUpperLeg: {r: [lu, 0, 0]}, LeftLowerLeg: {r: [lk, 0, 0]}, LeftFoot: {r: [-(lu + lk) * .4, 0, 0]},
+    RightUpperLeg: {r: [ru, 0, 0]}, RightLowerLeg: {r: [rk, 0, 0]}, RightFoot: {r: [-(ru + rk) * .4, 0, 0]},
+    LeftUpperArm: {r: [-A.arm * s, 0, 0]}, RightUpperArm: {r: [A.arm * s, 0, 0]}, // Arms (berlawanan dengan kaki)
+    LeftLowerArm: {r: [A.el + A.el * mx(0, -s), 0, 0]}, RightLowerArm: {r: [A.el + A.el * mx(0, s), 0, 0]}
+  };
+};
+const TPL = {
+  walk: {base: 1, n: 8, loop: 1, pri: "Movement", es: "Linear", ed: "InOut",
+    f: gait({leg: 28, knee: 35, arm: 30, bob: .06, lean: -3, twist: 5, el: 10})},
+  run: {base: .6, n: 8, loop: 1, pri: "Movement", es: "Linear", ed: "InOut",
+    f: gait({leg: 55, knee: 75, arm: 60, bob: .12, lean: -12, twist: 9, el: 40})},
+  idle: {base: 3, n: 6, loop: 1, pri: "Idle", es: "Cubic", ed: "InOut", f(t) {
+    const u = (1 - C(2 * PI * t)) / 2;  // napas: 0 → 1 → 0
+    return {UpperTorso: {r: [-2 * u, 0, 0], p: [0, .03 * u, 0]}, Head: {r: [1.5 * u, 0, 0]},
+      LeftUpperArm: {r: [0, 0, -(3 + 2 * u)]}, RightUpperArm: {r: [0, 0, 3 + 2 * u]},
+      LeftLowerArm: {r: [8, 0, 0]}, RightLowerArm: {r: [8, 0, 0]}};
+  }},
+  wave: {base: 2, n: 17, loop: 0, pri: "Action", es: "Cubic", ed: "InOut", cyc: 1, f(t) {
+    const e = Math.min(1, S(PI * t) * 3), w = S(2 * PI * 3 * t);
+    return {RightUpperArm: {r: [0, 0, 150 * e]}, RightLowerArm: {r: [0, 0, 25 * e * w]},
+      Head: {r: [0, 0, 3 * e]}, UpperTorso: {r: [0, 0, -2 * e]}};
+  }},
+  jump: {base: 1, n: 10, loop: 0, pri: "Action", es: "Cubic", ed: "InOut", cyc: 1, f(t) {
+    const cr = (t < .25 ? S(PI * t / .25) : 0) + (t > .85 ? .6 * S(PI * (t - .85) / .15) : 0);
+    const air = t >= .25 && t < .85 ? S(PI * (t - .25) / .6) : 0;
+    const leg = 60 * cr + 20 * air, kn = -90 * cr - 30 * air, arm = 140 * air;
+    return {LowerTorso: {p: [0, -.35 * cr + 2.5 * air, 0]}, UpperTorso: {r: [-8 * cr, 0, 0]},
+      LeftUpperLeg: {r: [leg, 0, 0]}, RightUpperLeg: {r: [leg, 0, 0]},
+      LeftLowerLeg: {r: [kn, 0, 0]}, RightLowerLeg: {r: [kn, 0, 0]},
+      LeftFoot: {r: [-(leg + kn) * .4, 0, 0]}, RightFoot: {r: [-(leg + kn) * .4, 0, 0]},
+      LeftUpperArm: {r: [-30 * cr, 0, -arm]}, RightUpperArm: {r: [-30 * cr, 0, arm]}};
+  }}
+};
+const KEYS = [["walk|jalan|berjalan", "walk"], ["run|lari|sprint", "run"], ["idle|breath|napas|nafas|diam", "idle"], ["wave|lambai", "wave"], ["jump|lompat", "jump"]];
+
+/* Prompt teks → sequence. Rule-based lokal (tidak memanggil LLM); pose dihitung dari template di atas. */
+function fromPrompt(txt) {
+  const s = txt.toLowerCase();
+  const hit = KEYS.find(([r]) => new RegExp(r).test(s));
+  if (!hit) throw Error("Prompt tidak cocok dengan template. Gunakan: idle, walk, run, wave, jump — atau import JSON keyframe.");
+  const T = TPL[hit[1]];
+  const m = s.match(/(\d+(?:[.,]\d+)?)\s*(?:detik|dtk|sec|second|s\b)/);
+  const len = +$("dur").value || (m ? parseFloat(m[1].replace(",", ".")) : T.base);
+  const cycles = T.cyc || Math.max(1, Math.round(len / T.base));
+  const loopTxt = /tanpa loop|no loop|sekali/.test(s) ? 0 : /loop|berulang/.test(s) ? 1 : T.loop;
+  const pm = s.match(/(?:priority|prioritas)\s+(\w+)/);
+  const pri = pm && Object.keys(PRI).find(k => k.toLowerCase() === pm[1]) || T.pri;
+  const total = T.n * cycles, kfs = [];
+  for (let i = 0; i <= total; i++) {
+    const ph = i / T.n % 1 || (i && i % T.n === 0 ? 1 : 0);   // fase 0..1 per siklus; akhir siklus = 1
+    kfs.push({time: i / total * len, poses: T.f(T.cyc ? i / total : ph)});
+  }
+  return {name: hit[1][0].toUpperCase() + hit[1].slice(1) + "Anim", length: len, loop: !!loopTxt, pri, es: T.es, ed: T.ed, kfs};
+}
+
+/* Import JSON: {name,length,loop,priority,easingStyle,easingDirection,keyframes:[{time,poses:{Part|Motor6D:{r:[x,y,z],p:[x,y,z]}}}]} */
+function fromJSON(j) {
+  const alias = Object.fromEntries(RIG.map(r => [r[2], r[0]]));
+  const kfs = (j.keyframes || []).map(k => {
+    const poses = {};
+    for (const [n, v] of Object.entries(k.poses || {})) {
+      const part = RIG.some(r => r[0] === n) ? n : alias[n];
+      if (!part) throw Error("Joint tidak dikenal: " + n);
+      poses[part] = {r: v.r || v.rotation || [0, 0, 0], p: v.p || v.position || [0, 0, 0], es: v.easingStyle, ed: v.easingDirection};
+    }
+    return {time: +k.time, poses};
+  }).sort((a, b) => a.time - b.time);
+  if (!kfs.length) throw Error("keyframes kosong");
+  return {name: j.name || "ImportedAnim", length: +j.length || kfs[kfs.length - 1].time, loop: !!j.loop,
+    pri: j.priority || "Action", es: j.easingStyle || "Linear", ed: j.easingDirection || "InOut", kfs};
+}
+
+/* ===== Serializer RBXMX ===== */
+// Rotasi = CFrame.Angles(x,y,z) = Rx*Ry*Rz, row-major (R00..R22)
+function rotM(x, y, z) {
+  const [a, b, c] = [x, y, z].map(d => d * PI / 180);
+  const cx = C(a), sx = S(a), cy = C(b), sy = S(b), cz = C(c), sz = S(c);
+  return [cy * cz, -cy * sz, sy, cx * sz + sx * sy * cz, cx * cz - sx * sy * sz, -sx * cy, sx * sz - cx * sy * cz, sx * cz + cx * sy * sz, cx * cy];
+}
+const n6 = v => String(+(+v).toFixed(6));
+const esc = x => String(x).replace(/[<>&"']/g, c => ({"<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;"}[c]));
+
+function toRBXMX(q) {
+  let id = 0;
+  const ref = () => "RBX" + id++;
+  const pose = (part, kf) => {
+    const d = kf.poses[part] || {}, r = d.r || [0, 0, 0], p = d.p || [0, 0, 0], m = rotM(...r);
+    const kids = RIG.filter(x => x[1] === part).map(x => pose(x[0], kf)).join("");
+    const mat = m.map((v, i) => `<R${(i / 3) | 0}${i % 3}>${n6(v)}</R${(i / 3) | 0}${i % 3}>`).join("");
+    return `<Item class="Pose" referent="${ref()}"><Properties>` +
+      `<CoordinateFrame name="CFrame"><X>${n6(p[0])}</X><Y>${n6(p[1])}</Y><Z>${n6(p[2])}</Z>${mat}</CoordinateFrame>` +
+      `<token name="EasingDirection">${ED[d.ed || q.ed]}</token><token name="EasingStyle">${ES[d.es || q.es]}</token>` +
+      `<string name="Name">${part}</string><float name="Weight">${part === "HumanoidRootPart" ? 0 : 1}</float></Properties>${kids}</Item>`;
+  };
+  const kfx = q.kfs.map(k => `<Item class="Keyframe" referent="${ref()}"><Properties><string name="Name">Keyframe</string>` +
+    `<float name="Time">${n6(k.time)}</float></Properties>${pose("HumanoidRootPart", k)}</Item>`).join("\n");
+  return `<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">\n` +
+    `<Meta name="ExplicitAutoJoints">true</Meta>\n<Item class="KeyframeSequence" referent="${ref()}"><Properties>` +
+    `<float name="AuthoredHipHeight">2</float><bool name="Loop">${q.loop}</bool><string name="Name">${esc(q.name)}</string>` +
+    `<token name="Priority">${PRI[q.pri]}</token></Properties>\n${kfx}\n</Item>\n</roblox>`;
+}
+
+function validate(q) {
+  if (!(q.length > 0)) throw Error("Durasi harus > 0");
+  if (!(q.pri in PRI) || !(q.es in ES) || !(q.ed in ED)) throw Error("Priority/easing tidak valid");
+  if (q.kfs[0].time !== 0) throw Error("Keyframe pertama harus di time 0");
+  q.kfs.forEach(k => { if (!isFinite(k.time) || k.time < 0 || k.time > q.length + 1e-6) throw Error("Time keyframe di luar durasi: " + k.time); });
+}
+
+/* ===== State & UI ===== */
+let items = [], seq = null, jsonSeq = null, raw = null, lastIds = [], lastClick = -1, RID = 0;
+$("key").value = ROBLOX_API_KEY === "YOUR_KEY_HERE" ? "" : ROBLOX_API_KEY;
+$("cid").value = ROBLOX_CREATOR_ID === "YOUR_USER_ID" ? "" : ROBLOX_CREATOR_ID;
+
+function log(msg, cls = "") {
+  const d = document.createElement("div");
+  d.className = cls; d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  $("log").append(d); $("log").scrollTop = 1e9;
+}
+/* Item = satu KeyframeSequence: {name, kf, len, loop, pri, xml (hanya <Item>), sel} */
+const picked = () => items.filter(i => i.sel);
+const ready = () => { const on = picked().length > 0 || (!!raw && !items.length); ["up", "dl", "cu"].forEach(i => $(i).disabled = !on); };
+const HEAD = `<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">\n<Meta name="ExplicitAutoJoints">true</Meta>\n`;
+// Dokumen RBXMX berisi 1..n sequence; referent dibuat ulang agar unik
+const docOf = a => (HEAD + a.map(i => i.xml).join("\n") + "\n</roblox>").replace(/referent="[^"]*"/g, () => `referent="RBX${RID++}"`);
+const safe = s => s.replace(/[^\w.-]+/g, "_").slice(0, 60) || "anim";
+const clip = s => s.length > 6000 ? s.slice(0, 6000) + "\n… (dipotong)" : s;
+
+/* ===== Parser file Roblox → daftar KeyframeSequence ===== */
+const td = new TextDecoder(), WANT = new Set(["KeyframeSequence", "Keyframe", "Pose", "KeyframeMarker"]);
+const F32 = new Float32Array(1), U32 = new Uint32Array(F32.buffer);
+const f9 = v => String(+Number(v).toPrecision(9));
+const priName = v => Object.keys(PRI).find(k => PRI[k] == v) || String(v);
+
+function lz4(src, outLen) {              // LZ4 block decompress
+  const out = new Uint8Array(outLen); let i = 0, o = 0;
+  while (i < src.length) {
+    const t = src[i++]; let l = t >> 4;
+    if (l === 15) { let b; do { b = src[i++]; l += b; } while (b === 255); }
+    for (let k = 0; k < l; k++) out[o++] = src[i++];
+    if (i >= src.length) break;
+    const off = src[i++] | (src[i++] << 8); let m = t & 15;
+    if (m === 15) { let b; do { b = src[i++]; m += b; } while (b === 255); }
+    for (let k = 0, n = m + 4; k < n; k++, o++) out[o] = out[o - off];
+  }
+  return out;
+}
+
+function parseBin(buf) {                 // .rbxm / .rbxl biner
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  if (td.decode(u8.subarray(0, 8)) !== "<roblox!") throw Error("Header RBXM tidak valid");
+  const cls = {}, inst = {}, parent = {};
+  let p = 32, rotWarn = false;
+  while (p + 16 <= u8.length) {
+    const name = td.decode(u8.subarray(p, p + 4)), cl = dv.getUint32(p + 4, true), ul = dv.getUint32(p + 8, true);
+    p += 16;
+    const raw = cl ? lz4(u8.subarray(p, p + cl), ul) : u8.slice(p, p + ul);
+    p += cl || ul;
+    if (name.startsWith("END")) break;
+    const d = new DataView(raw.buffer, raw.byteOffset, raw.byteLength); let q = 0;
+    const u32 = () => { const v = d.getUint32(q, true); q += 4; return v; };
+    const str = () => { const l = u32(), s = td.decode(raw.subarray(q, q + l)); q += l; return s; };
+    const ilv = n => { const a = []; for (let k = 0; k < n; k++) a.push(((raw[q + k] << 24) | (raw[q + n + k] << 16) | (raw[q + 2 * n + k] << 8) | raw[q + 3 * n + k]) >>> 0); q += 4 * n; return a; };
+    const zz = a => a.map(v => (v >>> 1) ^ -(v & 1));
+    const acc = a => { let s = 0; return a.map(v => s += v); };
+    const fl = a => a.map(v => { U32[0] = ((v >>> 1) | (v << 31)) >>> 0; return F32[0]; });
+    if (name === "INST") {
+      const id = u32(), cn = str(); q++; const n = u32(), refs = acc(zz(ilv(n)));
+      cls[id] = {name: cn, refs};
+      if (WANT.has(cn)) refs.forEach(r => inst[r] = {cls: cn, props: {}, kids: []});
+    } else if (name === "PROP") {
+      const id = u32(), pn = str(), t = raw[q++], c = cls[id];
+      if (!c || !WANT.has(c.name)) continue;
+      const n = c.refs.length; let vals;
+      if (t === 1) vals = c.refs.map(str);
+      else if (t === 2) vals = c.refs.map(() => !!raw[q++]);
+      else if (t === 3) vals = zz(ilv(n));
+      else if (t === 4) vals = fl(ilv(n));
+      else if (t === 0x12) vals = ilv(n);
+      else if (t === 0x10) {             // CFrame: rotasi per instance, lalu X[], Y[], Z[]
+        const m = [];
+        for (let k = 0; k < n; k++) {
+          const rid = raw[q++];
+          if (rid === 0) { const r = []; for (let z = 0; z < 9; z++) { r.push(d.getFloat32(q, true)); q += 4; } m.push(r); }
+          else { if (rid !== 2) rotWarn = true; m.push([1, 0, 0, 0, 1, 0, 0, 0, 1]); }
+        }
+        const X = fl(ilv(n)), Y = fl(ilv(n)), Z = fl(ilv(n));
+        vals = m.map((r, k) => ({m: r, p: [X[k], Y[k], Z[k]]}));
+      } else continue;                   // tipe properti lain tidak dibutuhkan
+      c.refs.forEach((r, k) => { if (inst[r]) inst[r].props[pn] = {t, v: vals[k]}; });
+    } else if (name === "PRNT") {
+      q++; const n = u32(), ch = acc(zz(ilv(n))), pr = acc(zz(ilv(n)));
+      ch.forEach((c, k) => parent[c] = pr[k]);
+    }
+  }
+  for (const r in inst) { const pp = inst[parent[r]]; if (pp) pp.kids.push(inst[r]); }
+  if (rotWarn) log("Ada rotasi axis-aligned non-identitas yang diganti identitas (belum didukung).", "wn");
+  return Object.values(inst).filter(n => n.cls === "KeyframeSequence").map(n => {
+    const ks = n.kids.filter(k => k.cls === "Keyframe");
+    const g = (o, k, dflt) => o.props[k] ? o.props[k].v : dflt;
+    return {name: g(n, "Name", "KeyframeSequence"), kf: ks.length, len: Math.max(0, ...ks.map(k => g(k, "Time", 0))),
+      loop: !!g(n, "Loop", false), pri: priName(g(n, "Priority", 2)), xml: nodeXml(n), sel: false};
+  });
+}
+function nodeXml(n) {                    // pohon biner → XML RBXMX
+  const pr = Object.entries(n.props).map(([k, {t, v}]) => {
+    if (t === 1) return `<string name="${k}">${esc(v)}</string>`;
+    if (t === 2) return `<bool name="${k}">${v}</bool>`;
+    if (t === 3) return `<int name="${k}">${v}</int>`;
+    if (t === 4) return `<float name="${k}">${f9(v)}</float>`;
+    if (t === 0x12) return `<token name="${k}">${v}</token>`;
+    const mat = v.m.map((x, i) => `<R${(i / 3) | 0}${i % 3}>${f9(x)}</R${(i / 3) | 0}${i % 3}>`).join("");
+    return `<CoordinateFrame name="${k}"><X>${f9(v.p[0])}</X><Y>${f9(v.p[1])}</Y><Z>${f9(v.p[2])}</Z>${mat}</CoordinateFrame>`;
+  }).join("");
+  return `<Item class="${n.cls}" referent="RBX0"><Properties>${pr}</Properties>${n.kids.map(nodeXml).join("")}</Item>`;
+}
+function parseXml(txt) {                 // .rbxmx / .rbxlx
+  const doc = new DOMParser().parseFromString(txt, "text/xml");
+  if (doc.querySelector("parsererror")) throw Error("XML tidak valid");
+  return [...doc.querySelectorAll('Item[class="KeyframeSequence"]')].map(el => {
+    const g = (e, n) => { const x = e.querySelector(`:scope > Properties > [name="${n}"]`); return x ? x.textContent : null; };
+    const ks = [...el.querySelectorAll('Item[class="Keyframe"]')];
+    return {name: g(el, "Name") || "KeyframeSequence", kf: ks.length, len: Math.max(0, ...ks.map(k => +g(k, "Time") || 0)),
+      loop: g(el, "Loop") === "true", pri: priName(g(el, "Priority")), xml: new XMLSerializer().serializeToString(el), sel: false};
+  });
+}
+
+/* ===== Daftar sequence: klik = toggle, Shift+klik = rentang ===== */
+function renderList() {
+  $("seqsec").hidden = !items.length;
+  $("seqcnt").textContent = `${picked().length}/${items.length} dipilih`;
+  $("seqlist").textContent = "";
+  items.forEach((it, i) => {
+    const l = document.createElement("label"), c = document.createElement("input"), t = document.createElement("span");
+    l.className = "sq"; c.type = "checkbox"; c.checked = it.sel;
+    c.onclick = e => {
+      if (e.shiftKey && lastClick >= 0) for (let k = Math.min(lastClick, i); k <= Math.max(lastClick, i); k++) items[k].sel = c.checked;
+      else it.sel = c.checked;
+      lastClick = i; renderList(); refresh();
+    };
+    t.textContent = `#${i + 1} ${it.name} — ${it.kf} keyframe, ${n6(it.len)}s, loop=${it.loop}, ${it.pri}`;
+    l.append(c, t); $("seqlist").append(l);
+  });
+}
+function refresh() {
+  const a = picked();
+  $("xml").textContent = a.length ? clip(docOf(a)) : raw ? "(file mentah dipakai apa adanya)" : "—";
+  ready();
+}
+function setItems(a) { items = a; lastClick = -1; renderList(); refresh(); }
+$("sall").onclick = () => { items.forEach(i => i.sel = true); renderList(); refresh(); };
+$("snone").onclick = () => { items.forEach(i => i.sel = false); renderList(); refresh(); };
+
+function showKf(i) {
+  if (!seq) return;
+  const k = seq.kfs[i];
+  $("kfinfo").textContent = `Keyframe ${i + 1}/${seq.kfs.length} — t = ${n6(k.time)} s`;
+  $("kft").innerHTML = "<tr><th>Motor6D</th><th>Pose</th><th>Rot (x,y,z °)</th><th>Pos (x,y,z)</th></tr>" +
+    RIG.slice(1).map(([part,, motor]) => {
+      const d = k.poses[part] || {};
+      return `<tr><td>${motor}</td><td>${part}</td><td>${(d.r || [0, 0, 0]).map(v => n6(v)).join(", ")}</td><td>${(d.p || [0, 0, 0]).map(v => n6(v)).join(", ")}</td></tr>`;
+    }).join("");
+}
+$("kfsel").oninput = e => showKf(+e.target.value);
+
+function generate() {
+  try {
+    const txt = $("prompt").value.trim();
+    if (!txt && !jsonSeq) throw Error(items.length || raw ? "Pilih sequence di daftar, lalu Upload." : "Isi prompt atau import file.");
+    seq = txt ? fromPrompt(txt) : structuredClone(jsonSeq); raw = null;
+    if ($("name").value.trim()) seq.name = $("name").value.trim();
+    if ($("loop").value) seq.loop = $("loop").value === "1";
+    for (const k of ["pri", "es", "ed"]) if ($(k).value) seq[k] = $(k).value;
+    validate(seq);
+    setItems([{name: seq.name, kf: seq.kfs.length, len: seq.length, loop: seq.loop, pri: seq.pri,
+      xml: toRBXMX(seq).match(/<Item class="KeyframeSequence"[\s\S]*<\/Item>/)[0], sel: true}]);
+    $("kfsel").max = seq.kfs.length - 1; $("kfsel").value = 0; showKf(0);
+    log(`KeyframeSequence "${seq.name}": ${seq.kfs.length} keyframe, ${n6(seq.length)}s, loop=${seq.loop}, priority=${seq.pri}, easing=${seq.es}/${seq.ed}`, "ok");
+  } catch (e) { log(e.message, "er"); }
+}
+$("gen").onclick = generate;
+$("ex").onclick = () => { $("prompt").value = "walk animation"; generate(); };
+
+$("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  seq = null; jsonSeq = null; raw = null; $("kft").textContent = ""; $("kfinfo").textContent = "Inspector hanya untuk hasil Generate / JSON.";
+  try {
+    if (/\.json$/i.test(f.name)) {
+      jsonSeq = fromJSON(JSON.parse(await f.text())); setItems([]);
+      log(`JSON diimpor: ${jsonSeq.kfs.length} keyframe.`, "ok"); if (!$("prompt").value.trim()) generate(); return;
+    }
+    const buf = await f.arrayBuffer();
+    try {
+      const bin = td.decode(new Uint8Array(buf, 0, Math.min(8, buf.byteLength))) === "<roblox!";
+      const list = bin ? parseBin(buf) : parseXml(td.decode(buf));
+      if (!list.length) { setItems([]); return log(`${f.name}: tidak ada KeyframeSequence.`, "er"); }
+      if (list.length === 1) list[0].sel = true;
+      setItems(list);
+      log(`${f.name}: ${list.length} KeyframeSequence ditemukan. ${list.length > 1 ? "Pilih satu atau lebih di daftar." : ""} Marker, event, dan properti di luar Keyframe/Pose ikut terbawa bila ada di file.`, "ok");
+    } catch (err) {
+      raw = {name: f.name, buf}; setItems([]);
+      log(`Parser gagal (${err.message}). File dipakai mentah apa adanya; daftar sequence tidak tersedia.`, "wn"); ready();
+    }
+  } catch (err) { log("Import gagal: " + err.message, "er"); }
+};
+
+/* ===== Upload Open Cloud (batch: satu asset per sequence terpilih) ===== */
+function jobs() {
+  if (!items.length && raw) return [{name: raw.name.replace(/\.[^.]+$/, ""), fn: raw.name, blob: new Blob([raw.buf], {type: "model/x-rbxm"})}];
+  const a = picked();
+  return a.map(it => ({name: it.name, fn: safe(it.name) + (a.length > 1 ? "_" + (items.indexOf(it) + 1) : "") + ".rbxmx",
+    blob: new Blob([docOf([it])], {type: "model/x-rbxm"})}));
+}
+const reqBody = j => ({assetType: "Animation", displayName: j.name.slice(0, 50),
+  description: "Uploaded via Roblox AI Animation Uploader", creationContext: {creator: {[$("ctype").value]: $("cid").value.trim()}}});
+const baseUrl = () => ($("base").value.trim() || API_BASE).replace(/\/$/, "");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function uploadOne(key, j) {       // melempar 0 bila gagal (sudah di-log)
+  const fd = new FormData();
+  fd.append("request", JSON.stringify(reqBody(j)));
+  fd.append("fileContent", j.blob, j.fn);
+  log("POST /assets/v1/assets (assetType=Animation)…");
+  const res = await fetch(baseUrl() + "/assets/v1/assets", {method: "POST", headers: {"x-api-key": key}, body: fd});
+  const txt = await res.text();
+  if (!res.ok) {
+    log(`HTTP ${res.status}: ${txt}`, "er");
+    if (res.status === 401 || res.status === 403) log("Cek izin key: asset:read + asset:write, pemilik, dan IP allowlist.", "wn");
+    else log("Dokumentasi Roblox membatasi upload Animation via Open Cloud: hanya konten hasil Asset Delivery yang dijamin diterima. Jika ditolak, pakai .rbxmx lewat Animation Editor di Studio.", "wn");
+    throw 0;
+  }
+  const op = JSON.parse(txt).path;
+  log("Operasi dibuat: " + op, "ok");
+  for (let i = 1; i <= 40; i++) {
+    await sleep(2000);
+    const r = await fetch(`${baseUrl()}/assets/v1/${op}`, {headers: {"x-api-key": key}});
+    const o = await r.json();
+    if (!r.ok) { log(`Polling HTTP ${r.status}: ${JSON.stringify(o)}`, "er"); throw 0; }
+    if (!o.done) { log(`Polling ${i}/40: belum selesai…`); continue; }
+    if (o.error) { log("Operasi gagal: " + JSON.stringify(o.error), "er"); throw 0; }
+    const id = String(o.response && o.response.assetId || "");
+    if (!id) { log("Selesai tanpa assetId: " + JSON.stringify(o), "er"); throw 0; }
+    return id;
+  }
+  log("Timeout polling. Operasi: " + op, "er"); throw 0;
+}
+async function upload() {
+  const key = $("key").value.trim();
+  if (!key || key === "YOUR_KEY_HERE") return log("API key belum diisi.", "er");
+  if (!/^\d+$/.test($("cid").value.trim())) return log("ID pemilik harus angka.", "er");
+  const js = jobs(); lastIds = [];
+  $("up").disabled = true; $("cp").disabled = true; $("out").textContent = "mengunggah…";
+  try {
+    for (const [n, j] of js.entries()) {
+      log(`[${n + 1}/${js.length}] ${j.name}`);
+      try {
+        const id = await uploadOne(key, j);
+        lastIds.push({name: j.name, id});
+        $("out").textContent = js.length === 1 ? "rbxassetid://" + id : lastIds.map(x => `${x.name}: rbxassetid://${x.id}`).join("\n");
+        $("cp").disabled = false;
+        log(`Berhasil: ${j.name} → ${id} (pastikan asset diizinkan untuk experience yang memakainya).`, "ok");
+      } catch (e) { if (e instanceof TypeError) throw e; if (e !== 0) log(String(e.message || e), "er"); }
+    }
+    if (!lastIds.length) $("out").textContent = "rbxassetid://…";
+    else if (lastIds.length < js.length) log(`${lastIds.length}/${js.length} berhasil.`, "wn");
+  } catch (e) {
+    log("Request diblokir browser (CORS/jaringan). Roblox Open Cloud tidak mengirim header CORS. Fallback: (1) 'Salin skrip proxy' lalu isi Base URL http://localhost:8787, (2) 'Salin cURL', atau (3) 'Unduh' lalu publish dari Studio.", "er");
+    if (!lastIds.length) $("out").textContent = "rbxassetid://…";
+  } finally { $("up").disabled = false; }
+}
+$("up").onclick = upload;
+$("cp").onclick = () => navigator.clipboard.writeText($("out").textContent).then(() => log("Hasil disalin."));
+$("dl").onclick = () => {
+  const js = jobs();
+  js.forEach((j, i) => setTimeout(() => { const a = document.createElement("a"); a.href = URL.createObjectURL(j.blob); a.download = j.fn; a.click(); }, i * 400));
+  log(`Mengunduh ${js.length} file. Studio: tarik ke Workspace/ServerStorage → Animation Editor → Import/Publish untuk dapat AnimationId.`, "wn");
+};
+
+/* ===== Fallback: cURL & proxy lokal ===== */
+$("cu").onclick = () => {
+  const c = "# Unduh dulu file-nya (tombol Unduh). Sintaks bash; key dibaca dari env ROBLOX_API_KEY.\n" + jobs().map(j =>
+    `curl -X POST '${baseUrl()}/assets/v1/assets' -H "x-api-key: $ROBLOX_API_KEY" \\\n  -F 'request=${JSON.stringify(reqBody(j))}' \\\n  -F 'fileContent=@"${j.fn}";type=model/x-rbxm'`).join("\n\n") +
+    `\n\n# poll operations/<id> dari respons:\ncurl '${baseUrl()}/assets/v1/operations/<id>' -H "x-api-key: $ROBLOX_API_KEY"`;
+  navigator.clipboard.writeText(c).then(() => log("cURL disalin.", "ok"));
+};
+
+const PROXY = `// proxy.js — jalankan: node proxy.js (Node 18+). Teruskan request ke Roblox + header CORS.
+require("http").createServer(async (q, s) => {
+  s.setHeader("Access-Control-Allow-Origin", "*");
+  s.setHeader("Access-Control-Allow-Headers", "*");
+  s.setHeader("Access-Control-Allow-Methods", "*");
+  if (q.method === "OPTIONS") return s.end();
+  const b = []; for await (const c of q) b.push(c);
+  const h = {"x-api-key": q.headers["x-api-key"]};
+  if (q.headers["content-type"]) h["content-type"] = q.headers["content-type"];
+  const r = await fetch("https://apis.roblox.com" + q.url, {method: q.method, headers: h,
+    body: ["GET", "HEAD"].includes(q.method) ? undefined : Buffer.concat(b)});
+  s.statusCode = r.status;
+  s.end(Buffer.from(await r.arrayBuffer()));
+}).listen(8787, () => console.log("proxy di http://localhost:8787"));`;
+$("px").onclick = () => navigator.clipboard.writeText(PROXY).then(() => log("Skrip proxy disalin. Simpan sebagai proxy.js, jalankan, lalu isi Base URL = http://localhost:8787", "ok"));
+
+log("Siap. Generator berbasis template lokal (tanpa LLM); upload memakai Open Cloud Assets API.");
+</script>
+</body>
+</html>

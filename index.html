@@ -493,6 +493,10 @@ async function upload() {
   const key = $("key").value.trim();
   if (!key || key === "YOUR_KEY_HERE") return log("API key belum diisi.", "er");
   if (!/^\d+$/.test($("cid").value.trim())) return log("ID pemilik harus angka.", "er");
+  if (baseUrl() !== API_BASE) {          // cek proxy lokal dulu agar error-nya jelas
+    try { const r = await fetch(baseUrl() + "/ping"); if (!(await r.text()).startsWith("ok")) throw Error("balasan /ping bukan dari proxy.js"); log("Proxy terhubung.", "ok"); }
+    catch (e) { return log(`Proxy ${baseUrl()} tidak terjangkau (${e.message}). Jalankan 'node proxy.js' di terminal dan biarkan terbuka. Di Safari atau halaman https, pakai index.html lokal.`, "er"); }
+  }
   const js = jobs(); lastIds = [];
   $("up").disabled = true; $("cp").disabled = true; $("out").textContent = "mengunggah…";
   try {
@@ -509,7 +513,7 @@ async function upload() {
     if (!lastIds.length) $("out").textContent = "rbxassetid://…";
     else if (lastIds.length < js.length) log(`${lastIds.length}/${js.length} berhasil.`, "wn");
   } catch (e) {
-    log("Request diblokir browser (CORS/jaringan). Roblox Open Cloud tidak mengirim header CORS. Fallback: (1) 'Salin skrip proxy' lalu isi Base URL http://localhost:8787, (2) 'Salin cURL', atau (3) 'Unduh' lalu publish dari Studio.", "er");
+    log(`Request gagal: ${e.message}. ` + (baseUrl() === API_BASE ? "Kemungkinan CORS: Roblox tidak mengirim header CORS. Pakai proxy (Base URL http://localhost:8787), cURL, atau Unduh lalu publish dari Studio." : "Proxy terjangkau tetapi request gagal; cek terminal proxy dan isi API key (tanpa spasi/karakter aneh)."), "er");
     if (!lastIds.length) $("out").textContent = "rbxassetid://…";
   } finally { $("up").disabled = false; }
 }
@@ -530,18 +534,27 @@ $("cu").onclick = () => {
 };
 
 const PROXY = `// proxy.js — jalankan: node proxy.js (Node 18+). Teruskan request ke Roblox + header CORS.
-require("http").createServer(async (q, s) => {
+const http = require("http");
+http.createServer(async (q, s) => {
   s.setHeader("Access-Control-Allow-Origin", "*");
   s.setHeader("Access-Control-Allow-Headers", "*");
   s.setHeader("Access-Control-Allow-Methods", "*");
+  s.setHeader("Access-Control-Allow-Private-Network", "true");
   if (q.method === "OPTIONS") return s.end();
-  const b = []; for await (const c of q) b.push(c);
-  const h = {"x-api-key": q.headers["x-api-key"]};
-  if (q.headers["content-type"]) h["content-type"] = q.headers["content-type"];
-  const r = await fetch("https://apis.roblox.com" + q.url, {method: q.method, headers: h,
-    body: ["GET", "HEAD"].includes(q.method) ? undefined : Buffer.concat(b)});
-  s.statusCode = r.status;
-  s.end(Buffer.from(await r.arrayBuffer()));
+  if (q.url === "/ping") return s.end("ok");
+  try {
+    const b = []; for await (const c of q) b.push(c);
+    const h = {"x-api-key": q.headers["x-api-key"]};
+    if (q.headers["content-type"]) h["content-type"] = q.headers["content-type"];
+    const r = await fetch("https://apis.roblox.com" + q.url, {method: q.method, headers: h,
+      body: ["GET", "HEAD"].includes(q.method) ? undefined : Buffer.concat(b)});
+    console.log(q.method, q.url, r.status);
+    s.statusCode = r.status;
+    s.end(Buffer.from(await r.arrayBuffer()));
+  } catch (e) {
+    console.error(q.method, q.url, e.message);
+    s.statusCode = 502; s.end(JSON.stringify({proxyError: e.message}));
+  }
 }).listen(8787, () => console.log("proxy di http://localhost:8787"));`;
 $("px").onclick = () => navigator.clipboard.writeText(PROXY).then(() => log("Skrip proxy disalin. Simpan sebagai proxy.js, jalankan, lalu isi Base URL = http://localhost:8787", "ok"));
 
